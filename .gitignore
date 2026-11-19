@@ -1,0 +1,9 @@
+backend-overlay/
+setup.bat
+setup.sh
+start.bat
+start.sh
+configure-env.php
+frontend/node_modules/
+frontend/dist/
+.vscode/
