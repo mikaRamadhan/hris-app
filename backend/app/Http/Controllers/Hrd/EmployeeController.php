@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Employee;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
 class EmployeeController extends Controller
@@ -31,7 +32,7 @@ class EmployeeController extends Controller
 
     private function query(Request $r)
     {
-        return Employee::with(['department:id,name', 'position:id,name', 'status:id,name'])
+        return Employee::with(['department:id,name', 'position:id,name', 'status:id,name'])->withExists(['faceProfile as has_face_profile'])
             ->when($r->q, fn ($q, $s) => $q->where(fn ($w) => $w->where('full_name', 'like', "%$s%")
                 ->orWhere('employee_number', 'like', "%$s%")->orWhere('email', 'like', "%$s%")))
             ->when($r->department_id, fn ($q, $v) => $q->where('department_id', $v))
@@ -92,5 +93,15 @@ class EmployeeController extends Controller
             }
             fclose($out);
         }, 'data-karyawan.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function facePhoto(Request $r, int $id)
+    {
+        $e = Employee::withTrashed()->with('faceProfile')->findOrFail($id);
+        $path = $e->faceProfile?->photo_path;
+        abort_unless($path && Storage::disk('local')->exists($path), 404, 'Foto registrasi tidak ada.');
+        AuditLog::record($r->user(), 'face.photo.view', $e);
+
+        return Storage::disk('local')->response($path);
     }
 }

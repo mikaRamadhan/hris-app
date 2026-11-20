@@ -12,6 +12,9 @@ use Illuminate\Validation\ValidationException;
 
 class AttendanceService
 {
+    public const LATE_REASONS = ['sakit' => 'Sakit', 'izin' => 'Izin'];
+    public const EARLY_REASONS = ['sakit' => 'Sakit', 'izin' => 'Izin', 'kunjungan' => 'Kunjungan'];
+
     /**
      * Memproses check-in / check-out. Absensi hanya berhasil jika lokasi valid, wajah cocok, dan liveness lulus.
      * Waktu yang dipakai selalu waktu server.
@@ -76,10 +79,31 @@ class AttendanceService
         $reason = null;
         if (!$locationOk) {
             $reason = $locationReason;
-        } elseif (!$livenessOk) {
+        } elseif (config('hris.require_liveness', false) && !$livenessOk) {
             $reason = 'Ditolak: pemeriksaan keaslian gagal.';
         } elseif (!$faceOk) {
             $reason = 'Ditolak: wajah tidak cocok.';
+        }
+
+        // Status jam kerja (WIB mengikuti APP_TIMEZONE=Asia/Jakarta)
+        $now = now();
+        $at = fn (string $hm) => $now->copy()->setTimeFromTimeString($hm);
+        if ($type === 'check_in') {
+            $timeStatus = $now->lte($at(config('hris.check_in_on_time', '09:00'))->endOfMinute()) ? 'on_time'
+                : ($now->lte($at(config('hris.check_in_tolerance', '09:30'))->endOfMinute()) ? 'tolerance' : 'late');
+        } else {
+            $timeStatus = $now->gte($at(config('hris.check_out_from', '17:00'))->startOfMinute()) ? 'normal' : 'early_leave';
+        }
+
+        $needsReason = ($type === 'check_in' && $timeStatus === 'late') || ($type === 'check_out' && $timeStatus === 'early_leave');
+        $options = $type === 'check_in' ? self::LATE_REASONS : self::EARLY_REASONS;
+        $reasonType = $in['reason_type'] ?? null;
+        if ($reason === null && $needsReason && (!$reasonType || !isset($options[$reasonType]))) {
+            throw new \Illuminate\Http\Exceptions\HttpResponseException(response()->json([
+                'message' => $type === 'check_in' ? 'Anda terlambat. Pilih alasan keterlambatan.' : 'Anda pulang sebelum jam kerja berakhir. Pilih alasan.',
+                'reason_required' => true,
+                'options' => collect($options)->map(fn ($label, $value) => ['value' => $value, 'label' => $label])->values(),
+            ], 422));
         }
 
         $attempt = [
@@ -94,7 +118,7 @@ class AttendanceService
             $this->abort($reason, 422);
         }
 
-        return DB::transaction(function () use ($employee, $type, $field, $today, $location, $lat, $lng, $distance) {
+        return DB::transaction(function () use ($employee, $type, $field, $today, $location, $lat, $lng, $distance, $livenessOk, $timeStatus, $in, $reasonType, $needsReason) {
             $record = AttendanceRecord::where('employee_id', $employee->id)->where('attendance_date', $today)->lockForUpdate()->first();
 
             if ($type === 'check_in' && $record?->check_in_at) {
@@ -112,7 +136,13 @@ class AttendanceService
             $record->{$field . '_distance_meters'} = (int) round($distance);
             $record->{$field . '_location_verified'} = true;
             $record->{$field . '_face_verified'} = true;
-            $record->{$field . '_liveness_passed'} = true;
+            $record->{$field . '_liveness_passed'} = $livenessOk;
+            $record->{$field . '_status'} = $timeStatus;
+            $record->{$field . '_reason_type'} = $needsReason ? $reasonType : null;
+            $record->{$field . '_reason_note'} = $needsReason ? mb_substr((string) ($in['reason_note'] ?? ''), 0, 300) ?: null : null;
+            if (!empty($in['photo'])) {
+                $record->{$field . '_photo'} = $in['photo']->storeAs('attendance/' . $employee->id, $today . '-' . ($type === 'check_in' ? 'in' : 'out') . '.jpg', 'local');
+            }
             $record->attendance_status = $type === 'check_in' ? 'checked_in' : 'completed';
             $record->save();
 

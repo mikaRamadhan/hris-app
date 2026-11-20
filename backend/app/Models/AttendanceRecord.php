@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class AttendanceRecord extends Model
 {
     protected $guarded = ['id'];
+    protected $hidden = ['check_in_photo', 'check_out_photo'];
+    protected $appends = ['has_check_in_photo', 'has_check_out_photo'];
     protected $casts = [
         'attendance_date' => 'date:Y-m-d',
         'check_in_at' => 'datetime',
@@ -14,6 +16,16 @@ class AttendanceRecord extends Model
         'check_in_location_verified' => 'boolean', 'check_in_face_verified' => 'boolean', 'check_in_liveness_passed' => 'boolean',
         'check_out_location_verified' => 'boolean', 'check_out_face_verified' => 'boolean', 'check_out_liveness_passed' => 'boolean',
     ];
+
+    public function getHasCheckInPhotoAttribute(): bool
+    {
+        return filled($this->attributes['check_in_photo'] ?? null);
+    }
+
+    public function getHasCheckOutPhotoAttribute(): bool
+    {
+        return filled($this->attributes['check_out_photo'] ?? null);
+    }
 
     public function employee()
     {

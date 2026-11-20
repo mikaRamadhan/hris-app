@@ -8,6 +8,7 @@ use App\Models\AttendanceLocation;
 use App\Models\AttendanceRecord;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
@@ -92,13 +93,27 @@ class AttendanceController extends Controller
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Tanggal', 'No. Karyawan', 'Nama', 'Lokasi', 'Check-in', 'Check-out', 'Jarak In (m)', 'Jarak Out (m)', 'Status']);
+            fputcsv($out, ['Tanggal', 'No. Karyawan', 'Nama', 'Lokasi', 'Check-in', 'Check-out', 'Jarak In (m)', 'Jarak Out (m)', 'Status Check-in', 'Alasan Check-in', 'Status Check-out', 'Alasan Check-out']);
             foreach ($rows as $a) {
                 fputcsv($out, [$a->attendance_date->toDateString(), $a->employee?->employee_number, $a->employee?->full_name, $a->location?->location_name,
                     $a->check_in_at?->format('H:i:s'), $a->check_out_at?->format('H:i:s'), $a->check_in_distance_meters, $a->check_out_distance_meters,
-                    $a->attendance_status === 'completed' ? 'Selesai' : 'Sudah check-in']);
+                    ['on_time' => 'Tepat waktu', 'tolerance' => 'Toleransi', 'late' => 'Terlambat'][$a->check_in_status] ?? '-',
+                    trim(($a->check_in_reason_type ?? '') . ' ' . ($a->check_in_reason_note ?? '')),
+                    ['normal' => 'Normal', 'early_leave' => 'Izin (pulang awal)'][$a->check_out_status] ?? '-',
+                    trim(($a->check_out_reason_type ?? '') . ' ' . ($a->check_out_reason_note ?? ''))]);
             }
             fclose($out);
         }, 'rekap-absensi.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    public function photo(Request $r, int $id, string $which)
+    {
+        abort_unless(in_array($which, ['in', 'out'], true), 404);
+        $rec = AttendanceRecord::findOrFail($id);
+        $path = $rec->getRawOriginal($which === 'in' ? 'check_in_photo' : 'check_out_photo');
+        abort_unless($path && Storage::disk('local')->exists($path), 404, 'Foto tidak ada.');
+        AuditLog::record($r->user(), 'attendance.photo.view', $rec, ['which' => $which]);
+
+        return Storage::disk('local')->response($path);
     }
 }

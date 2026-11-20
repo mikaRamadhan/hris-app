@@ -45,6 +45,7 @@ Route::middleware('auth.api')->group(function () {
         Route::post('applications/{id}/convert', [Hrd\ApplicationController::class, 'convert']);
 
         Route::get('employees/export', [Hrd\EmployeeController::class, 'export']);
+        Route::get('employees/{id}/face-photo', [Hrd\EmployeeController::class, 'facePhoto']);
         Route::apiResource('employees', Hrd\EmployeeController::class);
 
         Route::get('units', [Hrd\MasterController::class, 'units']);
@@ -63,6 +64,7 @@ Route::middleware('auth.api')->group(function () {
         Route::get('attendance', [Hrd\AttendanceController::class, 'records']);
         Route::get('attendance/export', [Hrd\AttendanceController::class, 'export']);
         Route::get('attendance/attempts', [Hrd\AttendanceController::class, 'attempts']);
+        Route::get('attendance/{id}/photo/{which}', [Hrd\AttendanceController::class, 'photo']);
     });
 
     // Admin
@@ -82,5 +84,7 @@ Route::middleware('auth.api')->group(function () {
         Route::delete('face', [EmployeeAreaController::class, 'deleteFace']);
         Route::post('attendance/{type}', [EmployeeAreaController::class, 'attend'])->middleware('throttle:20,1');
         Route::get('attendance', [EmployeeAreaController::class, 'history']);
+        Route::get('attendance/{id}/photo/{which}', [EmployeeAreaController::class, 'attendancePhoto']);
+        Route::get('face/photo', [EmployeeAreaController::class, 'facePhoto']);
     });
 });
