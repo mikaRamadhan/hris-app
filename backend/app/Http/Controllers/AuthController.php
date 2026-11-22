@@ -28,7 +28,7 @@ class AuthController extends Controller
 
     public static function userPayload(User $user): array
     {
-        return ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'role' => $user->role];
+        return ['id' => $user->id, 'name' => $user->name, 'email' => $user->email, 'role' => $user->role, 'avatar_url' => $user->avatarUrl()];
     }
 
     public function register(Request $request)

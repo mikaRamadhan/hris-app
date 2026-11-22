@@ -10,7 +10,7 @@ class Application extends Model
 
     protected $guarded = ['id'];
     protected $attributes = ['status' => 'submitted'];
-    protected $casts = ['announced_at' => 'datetime'];
+    protected $casts = ['announced_at' => 'datetime', 'cv_score' => 'float', 'cv_match' => 'array'];
 
     public function applicant()
     {

@@ -9,6 +9,7 @@ use App\Models\ApplicationDocument;
 use App\Models\AuditLog;
 use App\Models\Employee;
 use App\Models\SelectionResult;
+use App\Services\CvMatcher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -20,11 +21,13 @@ class ApplicationController extends Controller
             ->when($r->vacancy_id, fn ($q, $v) => $q->where('vacancy_id', $v))
             ->when($r->status, fn ($q, $s) => $q->where('status', $s))
             ->when($r->q, fn ($q, $s) => $q->whereHas('applicant', fn ($w) => $w->where('full_name', 'like', "%$s%")))
+            ->when($r->filled('min_score'), fn ($q) => $q->where('cv_score', '>=', (float) $r->min_score))
+            ->when($r->sort === 'score', fn ($q) => $q->orderByDesc('cv_score'))
             ->latest();
 
         return $q->paginate(15)->through(fn (Application $a) => [
             'id' => $a->id, 'applicant' => $a->applicant->full_name, 'education' => $a->applicant->education,
-            'vacancy' => $a->vacancy?->title, 'status' => $a->status, 'announced' => (bool) $a->announced_at,
+            'vacancy' => $a->vacancy?->title, 'status' => $a->status, 'announced' => (bool) $a->announced_at, 'cv_score' => $a->cv_score,
             'created_at' => $a->created_at->toIso8601String(),
         ]);
     }
@@ -45,7 +48,22 @@ class ApplicationController extends Controller
                 'is_announced' => $x->is_announced, 'by' => $x->decider?->name, 'at' => $x->created_at->toIso8601String(),
             ]),
             'employee_id' => $employee?->id,
+            'cv' => [
+                'keywords_set' => count($a->vacancy?->cv_keywords ?? []) > 0,
+                'score' => $a->cv_score,
+                'match' => $a->cv_match,
+            ],
         ];
+    }
+
+    /** Hitung ulang kecocokan CV (ekstraksi teks diulang), mis. setelah pustaka PDF dipasang. */
+    public function rescan(int $id)
+    {
+        $a = Application::findOrFail($id);
+        ApplicationDocument::where('application_id', $a->id)->where('type', 'cv')->update(['extracted_text' => null]);
+        CvMatcher::evaluate($a);
+
+        return $this->show($id);
     }
 
     public function document(int $id, int $docId)

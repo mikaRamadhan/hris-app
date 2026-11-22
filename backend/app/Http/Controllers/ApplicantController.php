@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Application;
 use App\Models\ApplicationDocument;
 use App\Models\Vacancy;
+use App\Services\CvMatcher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -106,6 +107,7 @@ class ApplicantController extends Controller
 
             return $app;
         });
+        CvMatcher::evaluate($application); // skor kecocokan CV terhadap keyword lowongan
 
         return response()->json($this->shape($application->load('vacancy'), true), 201);
     }
@@ -121,6 +123,9 @@ class ApplicantController extends Controller
             'file' => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:' . config('hris.document_max_kb'),
         ]);
         $doc = $this->storeDocument($app, $r->file('file'), $r->input('type'));
+        if ($doc->type === 'cv') {
+            CvMatcher::evaluate($app->fresh());
+        }
 
         return response()->json(['id' => $doc->id, 'type' => $doc->type, 'original_name' => $doc->original_name, 'size' => $doc->size], 201);
     }
@@ -135,6 +140,9 @@ class ApplicantController extends Controller
         abort_if($app->documents()->count() <= 1, 422, 'Lamaran minimal memiliki satu dokumen.');
         Storage::disk('local')->delete($doc->path);
         $doc->delete();
+        if ($doc->type === 'cv') {
+            CvMatcher::evaluate($app->fresh());
+        }
 
         return ['message' => 'Dokumen dihapus.'];
     }
@@ -161,6 +169,8 @@ class ApplicantController extends Controller
         return $app->documents()->create([
             'type' => $type, 'original_name' => mb_substr($file->getClientOriginalName(), 0, 200),
             'path' => $path, 'mime' => $file->getMimeType() ?? 'application/octet-stream', 'size' => $file->getSize(),
+            // Teks CV diekstrak sekali untuk pencocokan keyword (null bila bukan CV)
+            'extracted_text' => $type === 'cv' ? CvMatcher::extractText(Storage::disk('local')->path($path), $file->getClientOriginalExtension()) : null,
         ]);
     }
 }

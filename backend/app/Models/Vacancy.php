@@ -10,7 +10,7 @@ class Vacancy extends Model
     use SoftDeletes;
 
     protected $guarded = ['id'];
-    protected $casts = ['open_at' => 'date:Y-m-d', 'close_at' => 'date:Y-m-d'];
+    protected $casts = ['open_at' => 'date:Y-m-d', 'close_at' => 'date:Y-m-d', 'cv_keywords' => 'array'];
 
     public function unit()
     {

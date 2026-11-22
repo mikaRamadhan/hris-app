@@ -7,6 +7,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeAreaController;
 use App\Http\Controllers\EmployeeLeaveController;
 use App\Http\Controllers\Hrd;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,8 @@ Route::get('public/company', [PublicController::class, 'company']);
 Route::get('public/vacancies', [PublicController::class, 'vacancies']);
 Route::get('public/vacancies/{id}', [PublicController::class, 'vacancy']);
 
+Route::get('avatars/{file}', [ProfileController::class, 'avatar']);
+
 Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
 Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
@@ -22,6 +25,13 @@ Route::middleware('auth.api')->group(function () {
     Route::get('auth/me', [AuthController::class, 'me']);
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::get('dashboard', DashboardController::class);
+
+    // Profil (HRD & karyawan): foto, jabatan, departemen
+    Route::middleware('role:hrd,karyawan')->prefix('profile')->group(function () {
+        Route::get('/', [ProfileController::class, 'show']);
+        Route::post('photo', [ProfileController::class, 'updatePhoto'])->middleware('throttle:20,1');
+        Route::delete('photo', [ProfileController::class, 'deletePhoto']);
+    });
 
     // Pelamar
     Route::middleware('role:pelamar')->prefix('applicant')->group(function () {
@@ -44,6 +54,7 @@ Route::middleware('auth.api')->group(function () {
         Route::post('applications/{id}/results', [Hrd\ApplicationController::class, 'addResult']);
         Route::post('applications/{id}/announce', [Hrd\ApplicationController::class, 'announce']);
         Route::post('applications/{id}/convert', [Hrd\ApplicationController::class, 'convert']);
+        Route::post('applications/{id}/rescan', [Hrd\ApplicationController::class, 'rescan']);
 
         Route::get('employees/export', [Hrd\EmployeeController::class, 'export']);
         Route::get('employees/{id}/face-photo', [Hrd\EmployeeController::class, 'facePhoto']);
@@ -85,15 +96,20 @@ Route::middleware('auth.api')->group(function () {
         Route::get('audit-logs', [UserController::class, 'auditLogs']);
     });
 
-    // Karyawan
-    Route::middleware('role:karyawan')->prefix('employee')->group(function () {
+    // Karyawan dan HRD (fitur absensi yang sama)
+    Route::middleware('role:karyawan,hrd')->prefix('employee')->group(function () {
         Route::get('me', [EmployeeAreaController::class, 'me']);
         Route::post('face', [EmployeeAreaController::class, 'registerFace'])->middleware('throttle:10,1');
         Route::delete('face', [EmployeeAreaController::class, 'deleteFace']);
         Route::post('attendance/{type}', [EmployeeAreaController::class, 'attend'])->middleware('throttle:20,1');
+        Route::post('attendance-submit', [EmployeeAreaController::class, 'submit'])->middleware('throttle:20,1');
         Route::get('attendance', [EmployeeAreaController::class, 'history']);
         Route::get('attendance/{id}/photo/{which}', [EmployeeAreaController::class, 'attendancePhoto']);
         Route::get('face/photo', [EmployeeAreaController::class, 'facePhoto']);
+    });
+
+    // Cuti: khusus karyawan
+    Route::middleware('role:karyawan')->prefix('employee')->group(function () {
         Route::get('leave', [EmployeeLeaveController::class, 'index']);
         Route::post('leave', [EmployeeLeaveController::class, 'store'])->middleware('throttle:20,1');
         Route::post('leave/{id}/cancel', [EmployeeLeaveController::class, 'cancel']);

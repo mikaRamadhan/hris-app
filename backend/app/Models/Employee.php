@@ -42,6 +42,25 @@ class Employee extends Model
         return $this->hasMany(AttendanceRecord::class);
     }
 
+    /**
+     * Akun HRD tidak dibuat lewat konversi pelamar, jadi data karyawannya dibuat otomatis (sekali)
+     * agar HRD juga punya jabatan/departemen, registrasi wajah, dan absensi seperti karyawan.
+     */
+    public static function ensureForUser(User $user): self
+    {
+        if ($e = static::where('user_id', $user->id)->first()) {
+            return $e;
+        }
+
+        return static::create([
+            'user_id' => $user->id, 'employee_number' => static::nextNumber(), 'full_name' => $user->name, 'email' => $user->email,
+            'department_id' => OrganizationalUnit::where('type', 'department')->where('name', 'Human Resources')->value('id'),
+            'position_id' => OrganizationalUnit::where('type', 'position')->where('name', 'Staf HR')->value('id'),
+            'employee_status_id' => EmployeeStatus::where('name', 'Tetap')->value('id'),
+            'join_date' => today()->toDateString(), 'is_active' => true,
+        ]);
+    }
+
     public static function nextNumber(): string
     {
         $prefix = 'EMP-' . now()->format('Y') . '-';

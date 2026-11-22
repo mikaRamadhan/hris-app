@@ -7,5 +7,5 @@ use Illuminate\Database\Eloquent\Model;
 class ApplicationDocument extends Model
 {
     protected $guarded = ['id'];
-    protected $hidden = ['path'];
+    protected $hidden = ['path', 'extracted_text'];
 }

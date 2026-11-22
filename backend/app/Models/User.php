@@ -8,7 +8,7 @@ class User extends Authenticatable
 {
     public const ROLES = ['admin', 'hrd', 'pelamar', 'karyawan'];
 
-    protected $fillable = ['name', 'email', 'password', 'role', 'is_active'];
+    protected $fillable = ['name', 'email', 'password', 'role', 'is_active', 'avatar_path'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -25,6 +25,11 @@ class User extends Authenticatable
     public function employee()
     {
         return $this->hasOne(Employee::class);
+    }
+
+    public function avatarUrl(): ?string
+    {
+        return $this->avatar_path ? '/api/avatars/' . basename($this->avatar_path) : null;
     }
 
     public function apiTokens()

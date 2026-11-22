@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\AttendanceLocation;
 use App\Models\AttendanceRecord;
 use App\Models\AuditLog;
+use App\Models\Employee;
 use App\Models\EmployeeFaceProfile;
 use App\Services\AttendanceService;
 use Illuminate\Http\Request;
@@ -15,6 +16,10 @@ class EmployeeAreaController extends Controller
 {
     private function employee(Request $r)
     {
+        // HRD memakai fitur yang sama dengan karyawan; data karyawannya dibuat otomatis bila belum ada.
+        if ($r->user()->role === 'hrd') {
+            Employee::ensureForUser($r->user());
+        }
         $e = $r->user()->employee()->with(['department:id,name', 'position:id,name', 'status:id,name', 'faceProfile'])->first();
         abort_unless($e && $e->is_active, 403, 'Data karyawan tidak ditemukan atau tidak aktif.');
 
@@ -115,6 +120,20 @@ class EmployeeAreaController extends Controller
             'message' => $message,
             'record' => $record->load('location:id,location_name'),
         ]);
+    }
+
+    /** Langkah terakhir: setelah check-out, absensi hari ini diserahkan (submit) dan dinyatakan selesai. */
+    public function submit(Request $r)
+    {
+        $e = $this->employee($r);
+        $rec = AttendanceRecord::where('employee_id', $e->id)->whereDate('attendance_date', AttendanceRecord::bizToday())->first();
+        abort_unless($rec && $rec->check_in_at, 409, 'Anda belum check-in hari ini.');
+        abort_unless($rec->check_out_at, 409, 'Lakukan check-out terlebih dahulu sebelum menyelesaikan absensi.');
+        abort_if($rec->submitted_at, 409, 'Absensi hari ini sudah diselesaikan.');
+        $rec->forceFill(['submitted_at' => now()])->save();
+        AuditLog::record($r->user(), 'attendance.submit', $rec);
+
+        return response()->json(['message' => 'Absensi hari ini selesai. Terima kasih!', 'record' => $rec->fresh()->load('location:id,location_name')]);
     }
 
     public function history(Request $r)
