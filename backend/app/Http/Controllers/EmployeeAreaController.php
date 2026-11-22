@@ -24,7 +24,7 @@ class EmployeeAreaController extends Controller
     public function me(Request $r)
     {
         $e = $this->employee($r);
-        $today = AttendanceRecord::where('employee_id', $e->id)->whereDate('attendance_date', today())->first();
+        $today = AttendanceRecord::where('employee_id', $e->id)->whereDate('attendance_date', AttendanceRecord::bizToday())->first();
 
         return [
             'employee' => $e->makeHidden('faceProfile'),

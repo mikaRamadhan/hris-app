@@ -5,6 +5,7 @@ use App\Http\Controllers\ApplicantController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeAreaController;
+use App\Http\Controllers\EmployeeLeaveController;
 use App\Http\Controllers\Hrd;
 use App\Http\Controllers\PublicController;
 use Illuminate\Support\Facades\Route;
@@ -64,6 +65,13 @@ Route::middleware('auth.api')->group(function () {
         Route::get('attendance', [Hrd\AttendanceController::class, 'records']);
         Route::get('attendance/export', [Hrd\AttendanceController::class, 'export']);
         Route::get('attendance/attempts', [Hrd\AttendanceController::class, 'attempts']);
+        Route::get('attendance/stats', [Hrd\AttendanceController::class, 'stats']);
+        Route::post('attendance/mark', [Hrd\AttendanceController::class, 'mark']);
+        Route::get('leave', [Hrd\LeaveController::class, 'index']);
+        Route::put('leave/{employeeId}', [Hrd\LeaveController::class, 'update']);
+        Route::post('leave/requests/{id}/approve', [Hrd\LeaveController::class, 'approve']);
+        Route::post('leave/requests/{id}/reject', [Hrd\LeaveController::class, 'reject']);
+        Route::get('leave/requests/{id}/attachment', [Hrd\LeaveController::class, 'attachment']);
         Route::get('attendance/{id}/photo/{which}', [Hrd\AttendanceController::class, 'photo']);
     });
 
@@ -86,5 +94,9 @@ Route::middleware('auth.api')->group(function () {
         Route::get('attendance', [EmployeeAreaController::class, 'history']);
         Route::get('attendance/{id}/photo/{which}', [EmployeeAreaController::class, 'attendancePhoto']);
         Route::get('face/photo', [EmployeeAreaController::class, 'facePhoto']);
+        Route::get('leave', [EmployeeLeaveController::class, 'index']);
+        Route::post('leave', [EmployeeLeaveController::class, 'store'])->middleware('throttle:20,1');
+        Route::post('leave/{id}/cancel', [EmployeeLeaveController::class, 'cancel']);
+        Route::get('leave/{id}/attachment', [EmployeeLeaveController::class, 'attachment']);
     });
 });

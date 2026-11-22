@@ -31,8 +31,8 @@ class DashboardController extends Controller
                 'applications' => Application::count(),
                 'applications_by_status' => Application::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status'),
                 'employees_active' => Employee::where('is_active', true)->count(),
-                'attendance_today' => AttendanceRecord::whereDate('attendance_date', today())->count(),
-                'completed_today' => AttendanceRecord::whereDate('attendance_date', today())->where('attendance_status', 'completed')->count(),
+                'attendance_today' => AttendanceRecord::whereDate('attendance_date', AttendanceRecord::bizToday())->whereNotNull('check_in_at')->count(),
+                'completed_today' => AttendanceRecord::whereDate('attendance_date', AttendanceRecord::bizToday())->where('attendance_status', 'completed')->count(),
                 'locations' => AttendanceLocation::where('is_active', true)->count(),
             ],
             'pelamar' => [
@@ -46,7 +46,7 @@ class DashboardController extends Controller
             ],
             default => [
                 'role' => 'karyawan',
-                'today' => $user->employee ? AttendanceRecord::where('employee_id', $user->employee->id)->whereDate('attendance_date', today())->first() : null,
+                'today' => $user->employee ? AttendanceRecord::where('employee_id', $user->employee->id)->whereDate('attendance_date', AttendanceRecord::bizToday())->first() : null,
                 'face_registered' => (bool) $user->employee?->faceProfile,
             ],
         };

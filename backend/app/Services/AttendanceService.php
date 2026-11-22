@@ -22,7 +22,9 @@ class AttendanceService
     public function process(Employee $employee, string $type, array $in, Request $request): AttendanceRecord
     {
         $field = $type === 'check_in' ? 'check_in' : 'check_out';
-        $today = now()->toDateString();
+        // Tanggal dan jam kerja mengikuti zona waktu kantor (hris.timezone), bukan zona waktu aplikasi (UTC).
+        $bizNow = AttendanceRecord::bizNow();
+        $today = $bizNow->toDateString();
 
         $record = AttendanceRecord::where('employee_id', $employee->id)->where('attendance_date', $today)->first();
         if ($type === 'check_in' && $record && $record->check_in_at) {
@@ -85,8 +87,8 @@ class AttendanceService
             $reason = 'Ditolak: wajah tidak cocok.';
         }
 
-        // Status jam kerja (WIB mengikuti APP_TIMEZONE=Asia/Jakarta)
-        $now = now();
+        // Status jam kerja (zona waktu kantor)
+        $now = $bizNow;
         $at = fn (string $hm) => $now->copy()->setTimeFromTimeString($hm);
         if ($type === 'check_in') {
             $timeStatus = $now->lte($at(config('hris.check_in_on_time', '09:00'))->endOfMinute()) ? 'on_time'
