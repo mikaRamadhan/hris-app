@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { api } from './api.js'
 
 // ---------- Toast ----------
 const ToastCtx = createContext(() => {})
@@ -83,6 +84,7 @@ export const fmtSize = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : 
 const STATUS = {
   submitted: ['Diajukan', 'info'], reviewing: ['Direview', 'warn'], interview: ['Wawancara', 'prim'], accepted: ['Diterima', 'ok'], rejected: ['Ditolak', 'bad'],
   draft: ['Draft', ''], open: ['Dibuka', 'ok'], closed: ['Ditutup', 'bad'],
+  on_time: ['Tepat waktu', 'ok'], tolerance: ['Toleransi', 'warn'], late: ['Terlambat', 'bad'], normal: ['Pulang normal', 'ok'], early_leave: ['Izin (pulang awal)', 'warn'],
   checked_in: ['Sudah check-in', 'warn'], completed: ['Selesai', 'ok'],
   pass: ['Lulus', 'ok'], fail: ['Tidak lulus', 'bad'], pending: ['Menunggu', 'warn'],
 }
@@ -115,4 +117,37 @@ export function useForm(initial) {
   const [errors, setErrors] = useState({})
   const set = (k) => (e) => setValues((v) => ({ ...v, [k]: e?.target ? (e.target.type === 'checkbox' ? e.target.checked : e.target.value) : e }))
   return { values, setValues, errors, setErrors, set }
+}
+
+export const REASON = { sakit: 'Sakit', izin: 'Izin', kunjungan: 'Kunjungan' }
+
+// ---------- Foto privat (diambil dengan token, ditampilkan sebagai blob) ----------
+export function SecureImage({ url, alt = 'foto', className, style }) {
+  const [src, setSrc] = useState(null)
+  const [fail, setFail] = useState(false)
+  useEffect(() => {
+    let live = true, obj = null
+    setSrc(null); setFail(false)
+    api.blobUrl(url).then((u) => { obj = u; live ? setSrc(u) : URL.revokeObjectURL(u) }).catch(() => live && setFail(true))
+    return () => { live = false; if (obj) URL.revokeObjectURL(obj) }
+  }, [url])
+  if (fail) return <span className="muted small">Foto tidak tersedia</span>
+  if (!src) return <span className="spin" />
+  return <img src={src} alt={alt} className={className} style={style} />
+}
+
+/** Gambar kecil yang bisa diklik untuk memperbesar. */
+export function PhotoThumb({ url, label }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" className="thumb" title={label} onClick={() => setOpen(true)}><SecureImage url={url} alt={label} /></button>
+      {open && <Modal title={label} onClose={() => setOpen(false)}><SecureImage url={url} alt={label} style={{ width: '100%', borderRadius: 10 }} /></Modal>}
+    </>
+  )
+}
+
+export function ReasonText({ type, note }) {
+  if (!type) return null
+  return <div className="muted small">{REASON[type] || type}{note ? `: ${note}` : ''}</div>
 }

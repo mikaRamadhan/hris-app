@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Briefcase, CalendarCheck, ClipboardList, MapPin, ShieldCheck, UserCheck, Users, UserX } from 'lucide-react'
 import { api } from '../api.js'
 import { useAuth } from '../auth.jsx'
+import { ProfileCard } from './Employee.jsx'
 import { Empty, fmtTime, PageHead, Spinner, StatusBadge, useLoad, ROLE } from '../ui.jsx'
 
 const Stat = ({ icon: Icon, value, label, to }) => {
@@ -55,6 +56,7 @@ export default function Dashboard() {
       )}
       {d.role === 'karyawan' && (
         <div className="stack">
+          <ProfileCard />
           {!d.face_registered && <div className="alert warn">Wajah Anda belum terdaftar. <Link to="/app/wajah">Daftarkan wajah</Link> untuk dapat absen.</div>}
           <div className="card"><h2>Kehadiran hari ini</h2>
             {d.today ? <div className="timeline"><div><span className="muted small">Check-in</span><b>{fmtTime(d.today.check_in_at)}</b></div><div><span className="muted small">Check-out</span><b>{fmtTime(d.today.check_out_at)}</b></div></div>

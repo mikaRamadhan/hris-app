@@ -24,7 +24,7 @@ async function request(method, url, body, { raw } = {}) {
   if (!res.ok) {
     if (res.status === 401 && token) onUnauthorized()
     const first = data.errors ? Object.values(data.errors)[0]?.[0] : null
-    throw Object.assign(new Error(first || data.message || `Terjadi kesalahan (${res.status})`), { status: res.status, errors: data.errors || {} })
+    throw Object.assign(new Error(first || data.message || `Terjadi kesalahan (${res.status})`), { status: res.status, errors: data.errors || {}, data })
   }
   return data
 }
@@ -34,6 +34,11 @@ export const api = {
   post: (u, b) => request('POST', u, b ?? {}),
   put: (u, b) => request('PUT', u, b ?? {}),
   del: (u) => request('DELETE', u),
+  // Ambil gambar yang dilindungi token dan ubah menjadi object URL
+  async blobUrl(url) {
+    const res = await request('GET', url, undefined, { raw: true })
+    return URL.createObjectURL(await res.blob())
+  },
   // Unduh file yang dilindungi token (dokumen, CSV)
   async download(url, filename) {
     const res = await request('GET', url, undefined, { raw: true })

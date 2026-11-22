@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Download, Plus } from 'lucide-react'
 import { api, qs } from '../api.js'
-import { ActiveBadge, Empty, Field, fmtDate, Modal, PageHead, Pager, Spinner, useForm, useLoad, useToast } from '../ui.jsx'
+import { ActiveBadge, Empty, Field, fmtDate, Modal, PageHead, Pager, SecureImage, Spinner, useForm, useLoad, useToast } from '../ui.jsx'
 
 const blank = { employee_number: '', full_name: '', email: '', phone: '', address: '', birth_date: '', gender: '', department_id: '', position_id: '', employee_status_id: '', join_date: new Date().toISOString().slice(0, 10), end_date: '', is_active: true }
 
@@ -49,6 +49,7 @@ export default function HrdEmployees() {
   const units = useLoad(() => api.get('/hrd/units'))
   const sts = useLoad(() => api.get('/hrd/employee-statuses'))
   const [edit, setEdit] = useState(null)
+  const [photo, setPhoto] = useState(null)
   const set = (k) => (e) => setFilter({ ...filter, [k]: e.target.value, page: 1 })
   const deactivate = async (x) => {
     if (!confirm(`Nonaktifkan ${x.full_name}?`)) return
@@ -73,10 +74,11 @@ export default function HrdEmployees() {
                 <td><b>{x.full_name}</b><div className="muted small">{x.employee_number} · {x.email}</div></td>
                 <td>{x.department?.name || '-'}<div className="muted small">{x.position?.name || '-'}</div></td>
                 <td><ActiveBadge on={x.is_active} /> <span className="badge">{x.status?.name || '-'}</span></td><td className="small">{fmtDate(x.join_date)}</td>
-                <td className="right"><div className="row" style={{ justifyContent: 'flex-end' }}><button className="btn sm" onClick={() => setEdit(x)}>Ubah</button>{x.is_active && <button className="btn sm danger" onClick={() => deactivate(x)}>Nonaktifkan</button>}</div></td></tr>)}</tbody></table>)}
+                <td className="right"><div className="row" style={{ justifyContent: 'flex-end' }}>{x.has_face_profile && <button className="btn sm" onClick={() => setPhoto(x)}>Foto wajah</button>}<button className="btn sm" onClick={() => setEdit(x)}>Ubah</button>{x.is_active && <button className="btn sm danger" onClick={() => deactivate(x)}>Nonaktifkan</button>}</div></td></tr>)}</tbody></table>)}
         </div>
         {data && <Pager meta={data} onPage={(p) => setFilter({ ...filter, page: p })} />}
       </div>
+      {photo && <Modal title={`Foto registrasi: ${photo.full_name}`} onClose={() => setPhoto(null)}><SecureImage url={`/hrd/employees/${photo.id}/face-photo`} alt="Foto registrasi" style={{ width: '100%', borderRadius: 10 }} /></Modal>}
       {edit && <EmployeeForm item={edit.id ? edit : null} units={units.data || []} statuses={sts.data || []} onClose={() => setEdit(null)} onDone={() => { setEdit(null); reload() }} />}
     </>
   )
