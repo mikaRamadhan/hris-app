@@ -6,6 +6,8 @@ use App\Models\AttendanceLocation;
 use App\Models\AttendanceRecord;
 use App\Models\AuditLog;
 use App\Models\Employee;
+use App\Services\AttendanceStats;
+use Carbon\Carbon;
 use App\Models\EmployeeFaceProfile;
 use App\Services\AttendanceService;
 use Illuminate\Http\Request;
@@ -120,6 +122,33 @@ class EmployeeAreaController extends Controller
             'message' => $message,
             'record' => $record->load('location:id,location_name'),
         ]);
+    }
+
+    /** Statistik pribadi: total jam kerja, aktivitas harian, ketepatan masuk/pulang pada rentang tanggal (default 30 hari terakhir). */
+    public function stats(Request $r)
+    {
+        $e = $this->employee($r);
+        $r->validate(['from' => 'nullable|date_format:Y-m-d', 'to' => 'nullable|date_format:Y-m-d']);
+        $tz = AttendanceRecord::tz();
+        $today = AttendanceRecord::bizToday();
+        $to = $r->filled('to') ? Carbon::parse($r->input('to'), $tz)->startOfDay() : $today->copy();
+        $from = $r->filled('from') ? Carbon::parse($r->input('from'), $tz)->startOfDay() : $to->copy()->subDays(30);
+        abort_if($from->gt($to), 422, 'Tanggal awal tidak boleh setelah tanggal akhir.');
+        abort_if($from->copy()->addDays(366)->lt($to), 422, 'Rentang tanggal maksimal 1 tahun.');
+
+        $rows = AttendanceRecord::where('employee_id', $e->id)
+            ->whereBetween('attendance_date', [$from->toDateString(), $to->toDateString()])
+            ->whereNotNull('check_in_at')->get()
+            ->map(fn ($x) => [
+                'date' => $x->attendance_date->toDateString(), 'in' => $x->check_in_at->timestamp, 'out' => $x->check_out_at?->timestamp,
+                'in_status' => $x->check_in_status, 'out_status' => $x->check_out_at ? $x->check_out_status : null,
+            ])->all();
+
+        return AttendanceStats::build(
+            $rows, $from->toDateString(), $to->toDateString(), $tz,
+            (string) config('hris.check_in_on_time', '09:00'), (string) config('hris.check_out_from', '17:00'),
+            (array) config('hris.work_days', [1, 2, 3, 4, 5]), $today->toDateString()
+        );
     }
 
     /** Langkah terakhir: setelah check-out, absensi hari ini diserahkan (submit) dan dinyatakan selesai. */

@@ -103,6 +103,7 @@ Route::middleware('auth.api')->group(function () {
         Route::delete('face', [EmployeeAreaController::class, 'deleteFace']);
         Route::post('attendance/{type}', [EmployeeAreaController::class, 'attend'])->middleware('throttle:20,1');
         Route::post('attendance-submit', [EmployeeAreaController::class, 'submit'])->middleware('throttle:20,1');
+        Route::get('stats', [EmployeeAreaController::class, 'stats']);
         Route::get('attendance', [EmployeeAreaController::class, 'history']);
         Route::get('attendance/{id}/photo/{which}', [EmployeeAreaController::class, 'attendancePhoto']);
         Route::get('face/photo', [EmployeeAreaController::class, 'facePhoto']);
